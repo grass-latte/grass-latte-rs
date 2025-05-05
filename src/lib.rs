@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use once_cell::sync::Lazy;
 use tiny_http::{Header, Response, Server};
+use tungstenite::Message;
 use tungstenite::protocol::WebSocketConfig;
 
 const DEFAULT_WEB_PORT: u16 = 8080;
@@ -30,7 +31,7 @@ pub fn serve_webpage_with_port(web_port: u16) {
         let pos = html.rfind(SEARCHING_FOR).unwrap() + SEARCHING_FOR.len();
         html.insert_str(pos, &format!("{}-{}", websocket_port_range.0, websocket_port_range.1));
 
-        let server_address = format!("0.0.0.0:{}", web_port);
+        let server_address = format!("127.0.0.1:{}", web_port);
         let server = Server::http(&server_address).unwrap();
         println!("Serving on http://{server_address}");
 
@@ -84,7 +85,20 @@ fn sender(r: Receiver<SendTypes>) {
 
         let mut websocket = tungstenite::accept(stream).unwrap();
 
-        println!("{:?}", websocket.read()); // Wait for hello (webpage is ready)
+        let hello = websocket.read().unwrap();
+
+        println!("{:?}", hello); // Wait for hello (webpage is ready)
+        
+        match hello {
+            Message::Text(_) => {}
+            Message::Binary(_) => {}
+            Message::Ping(_) => {}
+            Message::Pong(_) => {}
+            Message::Close(_) => {
+                continue;
+            }
+            Message::Frame(_) => {}
+        }
 
         for message in r.iter() {
             match message {
