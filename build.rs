@@ -27,8 +27,12 @@ fn main() {
 
         let dest_path = Path::new(&manifest_dir).join("src").join("index.html");
 
+        let mut html = fs::read_to_string(&source_path_abs).expect("Failed to read HTML file");
+        let pos = html.rfind("</body>").unwrap();
+        html.insert_str(pos, "  <div id=\"port-marker-he9RYeXH5Psd7vcKOzWs\" style=\"display: none;\"></div>\n  ");
+
         // Copy the file
-        fs::copy(&source_path_abs, &dest_path)
+        fs::write(&dest_path, &html)
             .expect("Failed to copy HTML file to src/index.html");
 
         println!("cargo:rerun-if-changed=.html-source");

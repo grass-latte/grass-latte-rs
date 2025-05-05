@@ -6,12 +6,17 @@ use tiny_http::{Header, Response, Server};
 
 pub fn serve_webpage() {
     thread::spawn(|| {
+        let mut html = String::from(include_str!("index.html"));
+        const SEARCHING_FOR: &str = "<div id=\"port-marker-he9RYeXH5Psd7vcKOzWs\" style=\"display: none;\">";
+        let pos = html.rfind(SEARCHING_FOR).unwrap() + SEARCHING_FOR.len();
+        html.insert_str(pos, "3030");
+        
         let server = Server::http("0.0.0.0:8080").unwrap();
         println!("Serving on http://0.0.0.0:8080");
 
         for request in server.incoming_requests() {
-            let html = include_str!("index.html");
-            let response = Response::from_string(html).with_header(
+            
+            let response = Response::from_string(&html).with_header(
                 Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..]).unwrap()
             );
             request.respond(response).unwrap();
@@ -54,7 +59,7 @@ fn sender(r: Receiver<SendTypes>) {
                 SendTypes::Charlie(c) => { println!("{c}") }
             }
 
-            websocket.write_message("Example".into()).unwrap();
+            websocket.send("Example".into()).unwrap();
         }
     }
 }
