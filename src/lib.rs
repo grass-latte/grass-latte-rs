@@ -4,6 +4,7 @@ use std::{io, thread};
 use std::time::{Duration, Instant};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use once_cell::sync::Lazy;
+use serde::Serialize;
 use tiny_http::{Header, Response, Server};
 use tungstenite::Message;
 use tungstenite::protocol::WebSocketConfig;
@@ -45,16 +46,52 @@ pub fn serve_webpage_with_port(web_port: u16) {
     });
 }
 
-pub fn send(text: SendTypes) {
-    GLOBAL_SENDER.send(text).unwrap();
+pub fn send_node<V: AsRef<[S]>, S: AsRef<str>>(path: V) {
+    GLOBAL_SENDER.send(SendTypes::Element(
+        ElementPacket {
+            path: path.as_ref().iter().map(|s| s.as_ref().to_string()).collect::<Vec<String>>(),
+            element: Element::Node(Node)
+        }
+    )).unwrap();
 }
 
-#[derive(Debug)]
-pub enum SendTypes {
-    Alpha,
-    Bravo,
-    Charlie(String)
+pub fn delete_element<V: AsRef<[S]>, S: AsRef<str>>(path: V) {
+    GLOBAL_SENDER.send(SendTypes::Delete(
+        DeletePacket {
+            path: path.as_ref().iter().map(|s| s.as_ref().to_string()).collect::<Vec<String>>()
+        }
+    )).unwrap();
 }
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", content = "data")]
+enum SendTypes {
+    #[serde(rename = "element")]
+    Element(ElementPacket),
+    #[serde(rename = "delete")]
+    Delete(DeletePacket),
+}
+
+#[derive(Debug, Serialize)]
+struct DeletePacket {
+    path: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct ElementPacket {
+    path: Vec<String>,
+    element: Element,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", content = "data")]
+enum Element {
+    #[serde(rename = "node")]
+    Node(Node)
+}
+
+#[derive(Debug, Serialize)]
+struct Node;
 
 static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
     let (s, r) = unbounded();
@@ -87,7 +124,7 @@ fn sender(r: Receiver<SendTypes>) {
 
         let hello = websocket.read().unwrap();
 
-        println!("{:?}", hello); // Wait for hello (webpage is ready)
+        // println!("{:?}", hello); // Wait for hello (webpage is ready)
         
         match hello {
             Message::Text(_) => {}
@@ -101,11 +138,8 @@ fn sender(r: Receiver<SendTypes>) {
         }
 
         for message in r.iter() {
-            match message {
-                SendTypes::Alpha => { websocket.send("Alpha".into()).unwrap(); }
-                SendTypes::Bravo => { websocket.send("Bravo".into()).unwrap(); }
-                SendTypes::Charlie(c) => { websocket.send(c.into()).unwrap(); }
-            }
+            let json = serde_json::to_string(&message).unwrap();
+            websocket.send(json.into()).unwrap();
         }
     }
 }
