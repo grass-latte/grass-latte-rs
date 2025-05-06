@@ -1,16 +1,14 @@
 use std::net::{SocketAddr, TcpListener};
 use std::sync::OnceLock;
 use std::{io, thread};
-use std::time::{Duration, Instant};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use tiny_http::{Header, Response, Server};
 use tungstenite::Message;
-use tungstenite::protocol::WebSocketConfig;
 
 const DEFAULT_WEB_PORT: u16 = 8080;
-const DEFAULT_PORT_RANGE: (u16, u16) = (3030, 3040);
+const DEFAULT_PORT_RANGE: (u16, u16) = (3030, 3030);
 
 pub static PORT_RANGE: OnceLock<(u16, u16)> = OnceLock::new();
 
