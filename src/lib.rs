@@ -53,6 +53,15 @@ pub fn send_node<V: AsRef<[S]>, S: AsRef<str>>(path: V) {
     )).unwrap();
 }
 
+pub fn send_text<V: AsRef<[S]>, S: AsRef<str>>(path: V, text: S) {
+    GLOBAL_SENDER.send(SendTypes::Element(
+        ElementPacket {
+            path: path.as_ref().iter().map(|s| s.as_ref().to_string()).collect::<Vec<String>>(),
+            element: Element::Text(Text { text: text.as_ref().to_string() })
+        }
+    )).unwrap();
+}
+
 pub fn delete_element<V: AsRef<[S]>, S: AsRef<str>>(path: V) {
     GLOBAL_SENDER.send(SendTypes::Delete(
         DeletePacket {
@@ -85,11 +94,18 @@ struct ElementPacket {
 #[serde(tag = "type", content = "data")]
 enum Element {
     #[serde(rename = "node")]
-    Node(Node)
+    Node(Node),
+    #[serde(rename = "text")]
+    Text(Text)
 }
 
 #[derive(Debug, Serialize)]
 struct Node;
+
+#[derive(Debug, Serialize)]
+struct Text {
+    text: String
+}
 
 static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
     let (s, r) = unbounded();
