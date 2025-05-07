@@ -138,8 +138,6 @@ fn sender(r: Receiver<SendTypes>) {
 
         let hello = websocket.read().unwrap();
 
-        // println!("{:?}", hello); // Wait for hello (webpage is ready)
-        
         match hello {
             Message::Text(_) => {}
             Message::Binary(_) => {}
