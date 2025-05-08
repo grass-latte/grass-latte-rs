@@ -1,10 +1,10 @@
-use crossbeam::channel::{unbounded, Receiver, Sender};
-use tungstenite::Message;
+use crate::interface::SendTypes;
+use crossbeam::channel::{Receiver, Sender, unbounded};
 use once_cell::sync::Lazy;
-use std::{io, thread};
 use std::net::{SocketAddr, TcpListener};
 use std::sync::OnceLock;
-use crate::interface::SendTypes;
+use std::{io, thread};
+use tungstenite::Message;
 
 pub static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
     let (s, r) = unbounded();

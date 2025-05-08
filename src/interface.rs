@@ -8,7 +8,7 @@ pub enum SendTypes {
     #[serde(rename = "delete")]
     Delete(DeletePacket),
     #[serde(rename = "clear")]
-    Clear
+    Clear,
 }
 
 #[derive(Debug, Serialize, new)]
@@ -29,12 +29,24 @@ pub enum Element {
     Node(Node),
     #[serde(rename = "text")]
     Text(Text),
+    #[serde(rename = "progress")]
+    Progress(Progress),
 }
 
-#[derive(Debug, Serialize)]
-pub struct Node;
+#[derive(Debug, Serialize, new)]
+pub struct Node {
+    card: bool,
+}
 
 #[derive(Debug, Serialize, new)]
 pub struct Text {
     text: String,
+    card: bool,
+}
+
+#[derive(Debug, Serialize, new)]
+pub struct Progress {
+    text: Option<String>,
+    progress: f32,
+    card: bool,
 }
