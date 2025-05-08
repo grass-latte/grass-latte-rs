@@ -49,11 +49,16 @@ pub fn send_progress<V: AsRef<[S]>, S: AsRef<str>, S2: AsRef<str>>(
         .unwrap();
 }
 
-pub fn send_button_with_callback<V: AsRef<[S]>, S: AsRef<str>, S2: AsRef<str>>(
+pub fn send_button_with_callback<
+    V: AsRef<[S]>,
+    S: AsRef<str>,
+    S2: AsRef<str>,
+    F: Fn() + Send + Sync + 'static,
+>(
     path: V,
     text: S2,
     card: bool,
-    callback: Box<dyn Fn() + Send>,
+    callback: F,
 ) {
     let path = path
         .as_ref()
@@ -64,7 +69,7 @@ pub fn send_button_with_callback<V: AsRef<[S]>, S: AsRef<str>, S2: AsRef<str>>(
     GLOBAL_CLICK_CALLBACKS
         .lock()
         .unwrap()
-        .insert(path.clone(), callback);
+        .insert(path.clone(), Box::new(callback));
 
     GLOBAL_SENDER
         .send(SendTypes::Element(ElementPacket::new(
@@ -102,6 +107,7 @@ pub fn poll_button<V: AsRef<[S]>, S: AsRef<str>, S2: AsRef<str>>(
                 .unwrap();
             true
         }
+        #[allow(unreachable_patterns)]
         _ => false,
     }
 }

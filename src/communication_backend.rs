@@ -44,8 +44,10 @@ pub static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
 pub static GLOBAL_EVENTS: Lazy<Mutex<HashMap<Vec<String>, EventTypes>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-pub static GLOBAL_CLICK_CALLBACKS: Lazy<Mutex<HashMap<Vec<String>, Box<dyn Fn() + Send>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+type Lam<T> = Lazy<Arc<Mutex<T>>>;
+type BFn = Box<dyn Fn() + Send + Sync>;
+pub static GLOBAL_CLICK_CALLBACKS: Lam<HashMap<Vec<String>, BFn>> =
+    Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 fn bind_in_range(start_port: u16, end_port: u16) -> io::Result<(TcpListener, u16)> {
     let addrs: Vec<SocketAddr> = (start_port..=end_port)
@@ -120,14 +122,21 @@ fn receiver(websocket: Arc<Mutex<WebSocket<TcpStream>>>) {
 
                 match event.data() {
                     EventTypes::Click(_) => {
-                        if let Some(callback) =
-                            GLOBAL_CLICK_CALLBACKS.lock().unwrap().get(event.path())
+                        if GLOBAL_CLICK_CALLBACKS
+                            .lock()
+                            .unwrap()
+                            .contains_key(event.path())
                         {
                             GLOBAL_SENDER
                                 .send(SendTypes::Handled(HandledPacket::new(event.path().clone())))
                                 .unwrap();
 
-                            callback();
+                            let path = event.path().clone();
+                            thread::spawn(move || {
+                                if let Some(f) = GLOBAL_CLICK_CALLBACKS.lock().unwrap().get(&path) {
+                                    f();
+                                };
+                            });
                         }
                     }
                 }
