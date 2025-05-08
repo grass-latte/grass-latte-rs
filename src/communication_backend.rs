@@ -1,4 +1,4 @@
-use crate::interface::{Event, EventTypes, SendTypes};
+use crate::interface::{Event, EventTypes, HandledPacket, SendTypes};
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -6,10 +6,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use std::{io, thread};
-use std::io::{ErrorKind, Write};
-use std::os::unix::fs::lchown;
 use tungstenite::{Message, WebSocket};
-use tungstenite::Error::Io;
 
 pub static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
     let (s, r) = unbounded();
@@ -17,7 +14,37 @@ pub static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
     s
 });
 
+// #[derive(Default)]
+// pub struct TreePart(HashMap<String, (Option<EventTypes>, TreePart)>);
+//
+// impl TreePart {
+//     pub fn get_path_mut(&mut self, path: &[String]) -> &mut (Option<EventTypes>, TreePart) {
+//         let (part, path_remaining) = path.split_first().unwrap();
+//
+//         if let Some(path_mut) = self.0.get_mut(part) {
+//             return if path_remaining.is_empty() {
+//                path_mut
+//             }
+//             else {
+//                 path_mut.1.get_path_mut(path_remaining)
+//             };
+//         }
+//
+//         self.0.insert(part.clone(), (None, Default::default()));
+//         let path_mut = self.0.get_mut(part).unwrap();
+//         if path_remaining.is_empty() {
+//             path_mut
+//         }
+//         else {
+//             path_mut.1.get_path_mut(path_remaining)
+//         }
+//     }
+// }
+
 pub static GLOBAL_EVENTS: Lazy<Mutex<HashMap<Vec<String>, EventTypes>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+pub static GLOBAL_CLICK_CALLBACKS: Lazy<Mutex<HashMap<Vec<String>, Box<dyn Fn() + Send>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 fn bind_in_range(start_port: u16, end_port: u16) -> io::Result<(TcpListener, u16)> {
@@ -38,25 +65,12 @@ fn sender(r: Receiver<SendTypes>) {
     let (server, _server_port) =
         bind_in_range(websocket_port_range.0, websocket_port_range.1).unwrap();
 
-    'outer: for stream in server.incoming() {
+    for stream in server.incoming() {
         let stream = stream.unwrap();
-        stream.set_nonblocking(true).unwrap();
 
-        let Ok(mut websocket) = tungstenite::accept(stream) else {
-            continue;
-        };
+        let mut websocket = tungstenite::accept(stream).unwrap();
 
-        let hello = loop {
-            match websocket.read() {
-                Ok(m) => break m,
-                Err(Io(ref e)) if e.kind() == ErrorKind::WouldBlock => {
-                    continue;
-                }
-                Err(_) => {
-                    continue 'outer;
-                }
-            }
-        };
+        let hello = websocket.read().unwrap();
 
         match hello {
             Message::Text(_) => {}
@@ -68,6 +82,8 @@ fn sender(r: Receiver<SendTypes>) {
             }
             Message::Frame(_) => {}
         }
+
+        websocket.get_mut().set_nonblocking(true).unwrap();
 
         let websocket = Arc::new(Mutex::new(websocket));
 
@@ -93,16 +109,33 @@ fn receiver(websocket: Arc<Mutex<WebSocket<TcpStream>>>) {
         let msg = {
             if let Ok(msg) = websocket.lock().unwrap().read() {
                 msg
-            }
-            else {
+            } else {
                 continue;
             }
         };
 
         match msg {
             Message::Text(t) => {
-                let event: Event = serde_json::from_str(&t.to_string()).unwrap();
-                GLOBAL_EVENTS.lock().unwrap().insert(event.path().clone(), event.into_data());
+                let event: Event = serde_json::from_str(t.as_ref()).unwrap();
+
+                match event.data() {
+                    EventTypes::Click(_) => {
+                        if let Some(callback) =
+                            GLOBAL_CLICK_CALLBACKS.lock().unwrap().get(event.path())
+                        {
+                            GLOBAL_SENDER
+                                .send(SendTypes::Handled(HandledPacket::new(event.path().clone())))
+                                .unwrap();
+
+                            callback();
+                        }
+                    }
+                }
+
+                GLOBAL_EVENTS
+                    .lock()
+                    .unwrap()
+                    .insert(event.path().clone(), event.into_data());
             }
             Message::Binary(_) => {}
             Message::Ping(_) => {}
@@ -115,5 +148,5 @@ fn receiver(websocket: Arc<Mutex<WebSocket<TcpStream>>>) {
     }
 }
 
-pub const DEFAULT_PORT_RANGE: (u16, u16) = (3030, 3030);
+pub const DEFAULT_PORT_RANGE: (u16, u16) = (3030, 3035);
 pub static PORT_RANGE: OnceLock<(u16, u16)> = OnceLock::new();

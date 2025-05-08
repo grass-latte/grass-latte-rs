@@ -10,8 +10,8 @@ pub enum SendTypes {
     Delete(DeletePacket),
     #[serde(rename = "clear")]
     Clear,
-    #[serde(rename = "handle")]
-    Handle(HandlePacket),
+    #[serde(rename = "handled")]
+    Handled(HandledPacket),
 }
 
 #[derive(Debug, Serialize, new)]
@@ -20,7 +20,7 @@ pub struct DeletePacket {
 }
 
 #[derive(Debug, Serialize, new)]
-pub struct HandlePacket {
+pub struct HandledPacket {
     path: Vec<String>,
 }
 
@@ -70,7 +70,7 @@ pub struct Button {
 #[derive(Deserialize, Getters)]
 pub struct Event {
     path: Vec<String>,
-    data: EventTypes
+    data: EventTypes,
 }
 
 impl Event {
