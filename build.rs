@@ -29,11 +29,13 @@ fn main() {
 
         let mut html = fs::read_to_string(&source_path_abs).expect("Failed to read HTML file");
         let pos = html.rfind("</body>").unwrap();
-        html.insert_str(pos, "  <div id=\"port-marker-he9RYeXH5Psd7vcKOzWs\" style=\"display: none;\"></div>\n  ");
+        html.insert_str(
+            pos,
+            "  <div id=\"port-marker-he9RYeXH5Psd7vcKOzWs\" style=\"display: none;\"></div>\n  ",
+        );
 
         // Copy the file
-        fs::write(&dest_path, &html)
-            .expect("Failed to copy HTML file to src/index.html");
+        fs::write(&dest_path, &html).expect("Failed to copy HTML file to src/index.html");
 
         println!("cargo:rerun-if-changed=.html-source");
         println!("cargo:rerun-if-changed={}", source_path_abs.display());
