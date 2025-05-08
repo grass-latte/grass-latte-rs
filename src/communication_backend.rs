@@ -4,6 +4,7 @@ use once_cell::sync::Lazy;
 use std::net::{SocketAddr, TcpListener};
 use std::sync::OnceLock;
 use std::{io, thread};
+use std::time::Duration;
 use tungstenite::Message;
 
 pub static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
@@ -50,7 +51,9 @@ fn sender(r: Receiver<SendTypes>) {
 
         for message in r.iter() {
             let json = serde_json::to_string(&message).unwrap();
-            websocket.send(json.into()).unwrap();
+            while websocket.send(json.clone().into()).is_err() {
+                thread::sleep(Duration::from_millis(100));
+            }
         }
     }
 }

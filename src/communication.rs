@@ -13,7 +13,7 @@ pub fn send_node<V: AsRef<[S]>, S: AsRef<str>>(path: V, card: bool) {
         .unwrap();
 }
 
-pub fn send_text<V: AsRef<[S]>, S: AsRef<str>>(path: V, text: S, card: bool) {
+pub fn send_text<V: AsRef<[S]>, S: AsRef<str>, S2: AsRef<str>>(path: V, text: S2, card: bool) {
     GLOBAL_SENDER
         .send(SendTypes::Element(ElementPacket::new(
             path.as_ref()
@@ -25,9 +25,9 @@ pub fn send_text<V: AsRef<[S]>, S: AsRef<str>>(path: V, text: S, card: bool) {
         .unwrap();
 }
 
-pub fn send_progress<V: AsRef<[S]>, S: AsRef<str>>(
+pub fn send_progress<V: AsRef<[S]>, S: AsRef<str>, S2: AsRef<str>>(
     path: V,
-    text: Option<S>,
+    text: Option<S2>,
     progress: f32,
     card: bool,
 ) {
