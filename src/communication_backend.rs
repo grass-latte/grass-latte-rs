@@ -1,17 +1,24 @@
-use crate::interface::SendTypes;
+use crate::interface::{Event, EventTypes, SendTypes};
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use once_cell::sync::Lazy;
-use std::net::{SocketAddr, TcpListener};
-use std::sync::OnceLock;
-use std::{io, thread};
+use std::collections::HashMap;
+use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
-use tungstenite::Message;
+use std::{io, thread};
+use std::io::{ErrorKind, Write};
+use std::os::unix::fs::lchown;
+use tungstenite::{Message, WebSocket};
+use tungstenite::Error::Io;
 
 pub static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
     let (s, r) = unbounded();
     thread::spawn(move || sender(r));
     s
 });
+
+pub static GLOBAL_EVENTS: Lazy<Mutex<HashMap<Vec<String>, EventTypes>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 fn bind_in_range(start_port: u16, end_port: u16) -> io::Result<(TcpListener, u16)> {
     let addrs: Vec<SocketAddr> = (start_port..=end_port)
@@ -31,12 +38,25 @@ fn sender(r: Receiver<SendTypes>) {
     let (server, _server_port) =
         bind_in_range(websocket_port_range.0, websocket_port_range.1).unwrap();
 
-    for stream in server.incoming() {
+    'outer: for stream in server.incoming() {
         let stream = stream.unwrap();
+        stream.set_nonblocking(true).unwrap();
 
-        let mut websocket = tungstenite::accept(stream).unwrap();
+        let Ok(mut websocket) = tungstenite::accept(stream) else {
+            continue;
+        };
 
-        let hello = websocket.read().unwrap();
+        let hello = loop {
+            match websocket.read() {
+                Ok(m) => break m,
+                Err(Io(ref e)) if e.kind() == ErrorKind::WouldBlock => {
+                    continue;
+                }
+                Err(_) => {
+                    continue 'outer;
+                }
+            }
+        };
 
         match hello {
             Message::Text(_) => {}
@@ -49,11 +69,48 @@ fn sender(r: Receiver<SendTypes>) {
             Message::Frame(_) => {}
         }
 
+        let websocket = Arc::new(Mutex::new(websocket));
+
+        let ws_clone = Arc::clone(&websocket);
+
+        thread::spawn(move || {
+            receiver(ws_clone);
+        });
+
         for message in r.iter() {
             let json = serde_json::to_string(&message).unwrap();
-            while websocket.send(json.clone().into()).is_err() {
+            let mut lock = websocket.lock().unwrap();
+            while lock.send(json.clone().into()).is_err() {
                 thread::sleep(Duration::from_millis(100));
             }
+        }
+    }
+}
+
+fn receiver(websocket: Arc<Mutex<WebSocket<TcpStream>>>) {
+    loop {
+        thread::sleep(Duration::from_millis(100));
+        let msg = {
+            if let Ok(msg) = websocket.lock().unwrap().read() {
+                msg
+            }
+            else {
+                continue;
+            }
+        };
+
+        match msg {
+            Message::Text(t) => {
+                let event: Event = serde_json::from_str(&t.to_string()).unwrap();
+                GLOBAL_EVENTS.lock().unwrap().insert(event.path().clone(), event.into_data());
+            }
+            Message::Binary(_) => {}
+            Message::Ping(_) => {}
+            Message::Pong(_) => {}
+            Message::Close(_) => {
+                return;
+            }
+            Message::Frame(_) => {}
         }
     }
 }

@@ -1,5 +1,6 @@
+use derive_getters::Getters;
 use derive_new::new;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", content = "data")]
 pub enum SendTypes {
@@ -9,10 +10,17 @@ pub enum SendTypes {
     Delete(DeletePacket),
     #[serde(rename = "clear")]
     Clear,
+    #[serde(rename = "handle")]
+    Handle(HandlePacket),
 }
 
 #[derive(Debug, Serialize, new)]
 pub struct DeletePacket {
+    path: Vec<String>,
+}
+
+#[derive(Debug, Serialize, new)]
+pub struct HandlePacket {
     path: Vec<String>,
 }
 
@@ -31,6 +39,8 @@ pub enum Element {
     Text(Text),
     #[serde(rename = "progress")]
     Progress(Progress),
+    #[serde(rename = "button")]
+    Button(Button),
 }
 
 #[derive(Debug, Serialize, new)]
@@ -50,3 +60,31 @@ pub struct Progress {
     progress: f32,
     card: bool,
 }
+
+#[derive(Debug, Serialize, new)]
+pub struct Button {
+    text: String,
+    card: bool,
+}
+
+#[derive(Deserialize, Getters)]
+pub struct Event {
+    path: Vec<String>,
+    data: EventTypes
+}
+
+impl Event {
+    pub fn into_data(self) -> EventTypes {
+        self.data
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum EventTypes {
+    #[serde(rename = "click")]
+    Click(Click),
+}
+
+#[derive(Deserialize)]
+pub struct Click;
