@@ -1,6 +1,6 @@
 use std::thread;
 use tiny_http::{Header, Response, Server};
-use crate::{DEFAULT_PORT_RANGE, PORT_RANGE};
+use crate::communication_backend::{DEFAULT_PORT_RANGE, PORT_RANGE};
 
 const DEFAULT_WEB_PORT: u16 = 8080;
 

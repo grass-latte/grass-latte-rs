@@ -1,4 +1,5 @@
-use crate::interface::{DeletePacket, Element, ElementPacket, Node, SendTypes, Text, GLOBAL_SENDER};
+use crate::communication_backend::GLOBAL_SENDER;
+use crate::interface::{DeletePacket, Element, ElementPacket, Node, SendTypes, Text};
 
 pub fn send_node<V: AsRef<[S]>, S: AsRef<str>>(path: V) {
     GLOBAL_SENDER
@@ -33,4 +34,8 @@ pub fn delete_element<V: AsRef<[S]>, S: AsRef<str>>(path: V) {
                 .collect::<Vec<String>>(),
         )))
         .unwrap();
+}
+
+pub fn clear() {
+    GLOBAL_SENDER.send(SendTypes::Clear).unwrap()
 }
