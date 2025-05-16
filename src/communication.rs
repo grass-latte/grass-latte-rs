@@ -1,7 +1,7 @@
 use crate::communication_backend::{GLOBAL_CLICK_CALLBACKS, GLOBAL_EVENTS, GLOBAL_SENDER};
 use crate::interface::{
-    ButtonWidget, DeletePacket, Widget, WidgetPacket, EventTypes, HandledPacket, NodeWidget, ProgressWidget,
-    SendTypes, TextWidget,
+    ButtonWidget, DeletePacket, EventTypes, HandledPacket, NodeWidget, ProgressWidget, SendTypes,
+    TextWidget, Widget, WidgetPacket,
 };
 
 /// Create/update a node widget on the web interface

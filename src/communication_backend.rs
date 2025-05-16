@@ -34,7 +34,7 @@ fn bind_in_range(start_port: u16, end_port: u16) -> io::Result<(TcpListener, u16
             let port = listener.local_addr()?.port();
             Ok((listener, port))
         }
-        Err(e) => Err(e), // Try the next port
+        Err(e) => Err(e),
     }
 }
 

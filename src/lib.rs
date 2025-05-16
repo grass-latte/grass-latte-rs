@@ -5,6 +5,7 @@ mod webpage;
 
 pub use webpage::serve_webpage;
 pub use webpage::serve_webpage_at_port;
+pub use webpage::serve_webpage_at_port_flexible;
 pub use webpage::set_port_range;
 
 pub use communication::clear_widgets;
