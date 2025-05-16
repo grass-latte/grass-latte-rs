@@ -1,11 +1,13 @@
 use derive_getters::Getters;
 use derive_new::new;
 use serde::{Deserialize, Serialize};
+
+/// Highest level of packet type sendable to the interface
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", content = "data")]
 pub enum SendTypes {
-    #[serde(rename = "element")]
-    Element(ElementPacket),
+    #[serde(rename = "widget")]
+    Widget(WidgetPacket),
     #[serde(rename = "delete")]
     Delete(DeletePacket),
     #[serde(rename = "clear")]
@@ -14,59 +16,64 @@ pub enum SendTypes {
     Handled(HandledPacket),
 }
 
+/// Delete a widget
 #[derive(Debug, Serialize, new)]
 pub struct DeletePacket {
     path: Vec<String>,
 }
 
+/// Confirm that an event has been handled (e.g. button click)
 #[derive(Debug, Serialize, new)]
 pub struct HandledPacket {
     path: Vec<String>,
 }
 
+/// Send a widget to the web interface
 #[derive(Debug, Serialize, new)]
-pub struct ElementPacket {
+pub struct WidgetPacket {
     path: Vec<String>,
-    element: Element,
+    widget: Widget,
 }
 
+/// Types of widgets available
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", content = "data")]
-pub enum Element {
+pub enum Widget {
     #[serde(rename = "node")]
-    Node(Node),
+    Node(NodeWidget),
     #[serde(rename = "text")]
-    Text(Text),
+    Text(TextWidget),
     #[serde(rename = "progress")]
-    Progress(Progress),
+    Progress(ProgressWidget),
     #[serde(rename = "button")]
-    Button(Button),
+    Button(ButtonWidget),
 }
 
 #[derive(Debug, Serialize, new)]
-pub struct Node {
+pub struct NodeWidget {
     card: bool,
 }
 
 #[derive(Debug, Serialize, new)]
-pub struct Text {
+pub struct TextWidget {
     text: String,
     card: bool,
 }
 
 #[derive(Debug, Serialize, new)]
-pub struct Progress {
+pub struct ProgressWidget {
     text: Option<String>,
     progress: f32,
     card: bool,
 }
 
 #[derive(Debug, Serialize, new)]
-pub struct Button {
+pub struct ButtonWidget {
     text: String,
     card: bool,
 }
 
+/// Event receivable from the web interface
 #[derive(Deserialize, Getters)]
 pub struct Event {
     path: Vec<String>,

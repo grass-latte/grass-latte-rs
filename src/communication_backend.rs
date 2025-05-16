@@ -8,39 +8,14 @@ use std::time::Duration;
 use std::{io, thread};
 use tungstenite::{Message, WebSocket};
 
+/// Queue and thread for sending messages to the web interface
 pub static GLOBAL_SENDER: Lazy<Sender<SendTypes>> = Lazy::new(|| {
     let (s, r) = unbounded();
-    thread::spawn(move || sender(r));
+    thread::spawn(move || websocket_handler(r));
     s
 });
 
-// #[derive(Default)]
-// pub struct TreePart(HashMap<String, (Option<EventTypes>, TreePart)>);
-//
-// impl TreePart {
-//     pub fn get_path_mut(&mut self, path: &[String]) -> &mut (Option<EventTypes>, TreePart) {
-//         let (part, path_remaining) = path.split_first().unwrap();
-//
-//         if let Some(path_mut) = self.0.get_mut(part) {
-//             return if path_remaining.is_empty() {
-//                path_mut
-//             }
-//             else {
-//                 path_mut.1.get_path_mut(path_remaining)
-//             };
-//         }
-//
-//         self.0.insert(part.clone(), (None, Default::default()));
-//         let path_mut = self.0.get_mut(part).unwrap();
-//         if path_remaining.is_empty() {
-//             path_mut
-//         }
-//         else {
-//             path_mut.1.get_path_mut(path_remaining)
-//         }
-//     }
-// }
-
+/// Queue for received messages from the web interface
 pub static GLOBAL_EVENTS: Lazy<Mutex<HashMap<Vec<String>, EventTypes>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
@@ -49,6 +24,7 @@ type BFn = Box<dyn Fn() + Send + Sync>;
 pub static GLOBAL_CLICK_CALLBACKS: Lam<HashMap<Vec<String>, BFn>> =
     Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
+/// Binds a TcpListener to a port in the specified range, if possible.
 fn bind_in_range(start_port: u16, end_port: u16) -> io::Result<(TcpListener, u16)> {
     let addrs: Vec<SocketAddr> = (start_port..=end_port)
         .map(|i| SocketAddr::from(([127, 0, 0, 1], i)))
@@ -62,7 +38,8 @@ fn bind_in_range(start_port: u16, end_port: u16) -> io::Result<(TcpListener, u16
     }
 }
 
-fn sender(r: Receiver<SendTypes>) {
+/// Handler for sending/receiving from the web interface
+fn websocket_handler(r: Receiver<SendTypes>) {
     let websocket_port_range = PORT_RANGE.get_or_init(|| DEFAULT_PORT_RANGE);
     let (server, _server_port) =
         bind_in_range(websocket_port_range.0, websocket_port_range.1).unwrap();
@@ -72,8 +49,8 @@ fn sender(r: Receiver<SendTypes>) {
 
         let mut websocket = tungstenite::accept(stream).unwrap();
 
+        // Hello message expected from web interface upon connection
         let hello = websocket.read().unwrap();
-
         match hello {
             Message::Text(_) => {}
             Message::Binary(_) => {}
@@ -105,6 +82,7 @@ fn sender(r: Receiver<SendTypes>) {
     }
 }
 
+/// Handler for receiving data from the web interface
 fn receiver(websocket: Arc<Mutex<WebSocket<TcpStream>>>) {
     loop {
         thread::sleep(Duration::from_millis(100));
@@ -158,4 +136,8 @@ fn receiver(websocket: Arc<Mutex<WebSocket<TcpStream>>>) {
 }
 
 pub const DEFAULT_PORT_RANGE: (u16, u16) = (3030, 3035);
+
+/// The range of ports that can be used by websockets - this can only be set once, after which it is
+/// read-only to prevent a web interface communicating on one set of ports that the library is
+/// ignoring
 pub static PORT_RANGE: OnceLock<(u16, u16)> = OnceLock::new();
